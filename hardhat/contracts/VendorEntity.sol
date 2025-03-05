@@ -15,31 +15,26 @@ contract VendorEntity is ERC1155, AccessControl {
 
     struct TokenMetadata {
         string vendor;
-        uint256 value; // either a discount % or a fixed value
+        uint256 value;
         TokenType tokenType;
-        uint256 remainingUses; // Only for coupons
         uint256 expiryDate;
-        string[] redeemableItems; // Only for vouchers
+        uint256 remainingUses; // Added this field
+        string[] redeemableItems;
         string encryptedData;
     }
 
-    // Mapping to store token metadata
     mapping(uint256 => TokenMetadata) private _tokenMetadata;
-    
-    // Mapping to store a list of gift cards for each user
     mapping(address => uint256[]) private _userGiftCards;
-
-    // Mapping to check if a user owns a specific token
     mapping(address => mapping(uint256 => bool)) private _ownedGiftCards;
 
     event GiftCardMinted(address indexed user, uint256 tokenId, uint256 value);
     event TokenMinted(address indexed vendor, uint256 tokenId, uint256 amount);
     event TokenRedeemed(address indexed user, uint256 tokenId, uint256 remainingUses);
-    event TokenSentToWallet(address indexed from, address indexed to, uint256 tokenId, string entityType);
+    event TokenSentToWallet(address indexed from, address indexed to, uint256 tokenId, TokenType tokenType);
 
     constructor(string memory uri_) ERC1155(uri_) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MINTER_ROLE, msg.sender); // Admin can manage roles
+        _grantRole(MINTER_ROLE, msg.sender);
     }
 
     function mintVoucherOrCoupon(
@@ -52,9 +47,10 @@ contract VendorEntity is ERC1155, AccessControl {
         uint256 remainingUses,
         string[] memory redeemableItems,
         string memory encryptedData,
-        uint256 amount // Number of copies to mint
+        uint256 amount
     ) public onlyRole(VENDOR_ROLE) {
         require(expiryDate > block.timestamp, "Expiry date should be in the future");
+
         if (tokenType == TokenType.COUPON) {
             require(value <= 100, "Coupon discount should be <= 100%");
             require(remainingUses > 0, "Coupon must have at least 1 use");
@@ -64,7 +60,10 @@ contract VendorEntity is ERC1155, AccessControl {
             require(redeemableItems.length > 0, "Voucher must have redeemable items");
         }
 
-        _mint(to, tokenId, amount, ""); // Mint multiple copies
+        require(_tokenMetadata[tokenId].expiryDate == 0, "Token ID already exists");
+
+        _mint(to, tokenId, amount, "");
+
         _tokenMetadata[tokenId] = TokenMetadata({
             vendor: vendor,
             value: value,
@@ -83,7 +82,6 @@ contract VendorEntity is ERC1155, AccessControl {
         emit TokenMinted(msg.sender, tokenId, amount);
     }
 
-    // Get Token Details
     function getTokenMetadata(uint256 tokenId)
         public
         view
@@ -97,7 +95,7 @@ contract VendorEntity is ERC1155, AccessControl {
             string memory encryptedData
         )
     {
-        require(bytes(_tokenMetadata[tokenId].vendor).length > 0, "Token does not exist");
+        require(_tokenMetadata[tokenId].expiryDate != 0, "Token does not exist");
         TokenMetadata memory metadata = _tokenMetadata[tokenId];
         return (
             metadata.vendor,
@@ -110,7 +108,6 @@ contract VendorEntity is ERC1155, AccessControl {
         );
     }
 
-    // Redeem Coupons and Vouchers
     function redeem(uint256 tokenId) public {
         require(balanceOf(msg.sender, tokenId) > 0, "You do not own this token");
         TokenMetadata storage metadata = _tokenMetadata[tokenId];
@@ -127,15 +124,14 @@ contract VendorEntity is ERC1155, AccessControl {
         } else if (metadata.tokenType == TokenType.VOUCHER) {
             _burn(msg.sender, tokenId, 1);
         } else {
-            revert("Only coupons and vouchers can be redeemed");
+            revert("Invalid token type");
         }
 
         emit TokenRedeemed(msg.sender, tokenId, metadata.remainingUses);
     }
 
-    // Generate Metadata URI
     function uri(uint256 tokenId) public view override returns (string memory) {
-        require(bytes(_tokenMetadata[tokenId].vendor).length > 0, "Token does not exist");
+        require(_tokenMetadata[tokenId].expiryDate != 0, "Token does not exist");
         return string(abi.encodePacked(super.uri(tokenId), tokenId.toString()));
     }
 
@@ -143,35 +139,19 @@ contract VendorEntity is ERC1155, AccessControl {
         return _userGiftCards[user];
     }
 
-    function sendTokenToWallet(
-        address to,
-        uint256 tokenId,
-        string memory entityType
-    ) public {
-        require(bytes(_tokenMetadata[tokenId].vendor).length > 0, "Token does not exist");
-        
-        // Ensure the entity type is valid
-        require(
-            keccak256(abi.encodePacked(entityType)) == keccak256("voucher") ||
-            keccak256(abi.encodePacked(entityType)) == keccak256("coupon"),
-            "Invalid entity type"
-        );
-
-        // Ensure the sender owns the token before transferring
+    function sendTokenToWallet(address to, uint256 tokenId) public {
+        require(_tokenMetadata[tokenId].expiryDate != 0, "Token does not exist");
         require(balanceOf(msg.sender, tokenId) > 0, "Sender does not own the token");
 
-        // Execute the transfer
         _safeTransferFrom(msg.sender, to, tokenId, 1, "");
 
-        emit TokenSentToWallet(msg.sender, to, tokenId, entityType);
+        emit TokenSentToWallet(msg.sender, to, tokenId, _tokenMetadata[tokenId].tokenType);
     }
 
-    // Assign Vendor Role
     function addVendor(address vendor) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(VENDOR_ROLE, vendor);
     }
 
-    // Check Role Support
     function supportsInterface(bytes4 interfaceId)
         public
         view

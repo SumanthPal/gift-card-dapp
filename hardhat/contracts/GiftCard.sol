@@ -31,21 +31,23 @@ contract GiftCard is ERC1155, AccessControl {
     }
 
     function sendGiftCard(address to, uint256 tokenId) public {
-        require(_ownedGiftCards[msg.sender][tokenId], "You do not own this gift card");
+    require(_ownedGiftCards[msg.sender][tokenId], "You do not own this gift card");
 
-        // Transfer the token
-        _safeTransferFrom(msg.sender, to, tokenId, 1, "");
+    // Transfer the token
+    _safeTransferFrom(msg.sender, to, tokenId, 1, "");
 
-        // Update ownership records
-        _ownedGiftCards[msg.sender][tokenId] = false;
-        if (!_ownedGiftCards[to][tokenId]) {
-            _userGiftCards[to].push(tokenId);
-            _ownedGiftCards[to][tokenId] = true;
-        }
-
-        emit GiftCardSent(msg.sender, to, tokenId);
-    }
+    // Update ownership records
+    _ownedGiftCards[msg.sender][tokenId] = false;
     
+    // Only add to _userGiftCards if this is a new token for the recipient
+    if (!_ownedGiftCards[to][tokenId]) {
+        _userGiftCards[to].push(tokenId);
+    }
+    _ownedGiftCards[to][tokenId] = true;
+
+    emit GiftCardSent(msg.sender, to, tokenId);
+}
+
 
     function mintGiftCard(
         address user,
@@ -53,8 +55,10 @@ contract GiftCard is ERC1155, AccessControl {
         string memory vendor,
         uint256 expiryDate,
         string memory encryptedData
-    ) public onlyRole(MINTER_ROLE) {
+    ) public  {
         require(expiryDate > block.timestamp, "Expiry date should be in the future");
+        require(hasRole(MINTER_ROLE, msg.sender) || msg.sender == user, "Not authorized to mint");
+
 
         _mint(user, tokenId, 1, "");
 
@@ -83,6 +87,7 @@ contract GiftCard is ERC1155, AccessControl {
         )
     {
         require(bytes(_tokenMetadata[tokenId].vendor).length > 0, "Token does not exist");
+        require(balanceOf(msg.sender, tokenId) > 0, "You must own this token to view its encrypted data");
         TokenMetadata memory metadata = _tokenMetadata[tokenId];
         return (
             metadata.vendor,
@@ -90,6 +95,26 @@ contract GiftCard is ERC1155, AccessControl {
             metadata.encryptedData
         );
     }
+
+    function getUserTokenMetadata(address user) public view returns (TokenMetadata[] memory) {
+    // Ensure that only the user can access their own metadata
+    require(msg.sender == user, "Only the user can access their metadata");
+
+    uint256[] memory userTokens = _userGiftCards[user];
+    uint256 totalTokens = userTokens.length;
+    TokenMetadata[] memory metadata = new TokenMetadata[](totalTokens);
+
+    for (uint256 i = 0; i < totalTokens; i++) {
+        uint256 tokenId = userTokens[i];
+        require(_ownedGiftCards[user][tokenId], "User does not own this gift card");
+
+        // Fetch the metadata associated with the tokenId
+        metadata[i] = _tokenMetadata[tokenId];
+    }
+
+    return metadata;
+}
+
 
     
 

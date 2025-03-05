@@ -1,101 +1,92 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { ConnectWallet } from '@/components/ConnectWallet';
+import { GiftCardGrid } from '@/components/GiftCardGrid';
+import { GiftCardForm } from '@/components/GiftCardForm';
+import { TokenMetadataViewer } from '@/components/TokenMetadataViewer';
+import { TabsContent, TabsList, TabsTrigger, Tabs } from '@/components/ui/tabs';
+import { useAccount, useReadContract } from 'wagmi';
+import { GIFT_CARD_ABI, GIFT_CARD_ADDRESS } from './utils/constants';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { address, isConnected } = useAccount();
+  const [activeTab, setActiveTab] = useState('my-cards');
+  const [mounted, setMounted] = useState(false);
+  
+  // Check if user has MINTER_ROLE
+  const { data: hasMinterRole } = useReadContract({
+    address: GIFT_CARD_ADDRESS,
+    abi: GIFT_CARD_ABI,
+    functionName: 'hasRole',
+    args: [
+      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266', // MINTER_ROLE
+      address
+    ],
+    enabled: !!address && mounted,
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Only render after component has mounted on the client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Gift Card DApp</h1>
+          <ConnectWallet />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {!mounted ? (
+          // Show a simple loading state during hydration
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        ) : isConnected ? (
+          <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+            <div className="mb-6">
+              {/* Only render TabsList after component is mounted */}
+              <TabsList>
+                <TabsTrigger value="my-cards">My Gift Cards</TabsTrigger>
+                <TabsTrigger value="look-up">Look Up Card</TabsTrigger>
+                
+                  <TabsTrigger value="mint">Mint Cards</TabsTrigger>
+                
+              </TabsList>
+            </div>
+            
+            <TabsContent value="my-cards">
+              <GiftCardGrid />
+            </TabsContent>
+            
+            <TabsContent value="look-up">
+              <div className="max-w-md mx-auto">
+                <TokenMetadataViewer />
+              </div>
+            </TabsContent>
+            
+            
+              <TabsContent value="mint">
+                <div className="max-w-md mx-auto">
+                  <GiftCardForm />
+                </div>
+              </TabsContent>
+            
+          </Tabs>
+        ) : (
+          <div className="text-center py-12">
+            <h2 className="text-xl font-semibold mb-4">Welcome to Gift Card DApp</h2>
+            <p className="text-gray-600 mb-6">Connect your wallet to manage your digital gift cards</p>
+            <div className="flex justify-center">
+              <ConnectWallet />
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "paths": {
-      "na/*": ["./src/*"]
+      "@/*": ["./src/*"]
     }
   }
 }
