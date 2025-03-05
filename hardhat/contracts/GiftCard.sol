@@ -56,8 +56,6 @@ contract GiftCard is ERC1155, AccessControl {
         uint256 expiryDate,
         string memory encryptedData
     ) public  {
-        require(expiryDate > block.timestamp, "Expiry date should be in the future");
-        require(hasRole(MINTER_ROLE, msg.sender) || msg.sender == user, "Not authorized to mint");
 
 
         _mint(user, tokenId, 1, "");

@@ -8,6 +8,10 @@ import { TokenMetadataViewer } from '@/components/TokenMetadataViewer';
 import { TabsContent, TabsList, TabsTrigger, Tabs } from '@/components/ui/tabs';
 import { useAccount, useReadContract } from 'wagmi';
 import { GIFT_CARD_ABI, GIFT_CARD_ADDRESS } from './utils/constants';
+import Link from "next/link";
+import Navbar from '@/components/NavBar';
+import { BackgroundBeamsWithCollision } from '@/components/ui/background-beams-with-collision';
+import { PulseBeams } from '@/components/ui/pulse-beams';
 
 export default function Home() {
   const { address, isConnected } = useAccount();
@@ -32,19 +36,15 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Gift Card DApp</h1>
-          <ConnectWallet />
-        </div>
-      </header>
+    <main className="min-h-screen">
+      <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
         {!mounted ? (
           // Show a simple loading state during hydration
           <div className="text-center py-12">
-            <p className="text-gray-600">Loading...</p>
+            <p >Loading...</p>
           </div>
         ) : isConnected ? (
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
@@ -79,10 +79,11 @@ export default function Home() {
           </Tabs>
         ) : (
           <div className="text-center py-12">
-            <h2 className="text-xl font-semibold mb-4">Welcome to Gift Card DApp</h2>
+            <h2 className="text-xl font-semibold mb-4">Welcome to CardSphere</h2>
             <p className="text-gray-600 mb-6">Connect your wallet to manage your digital gift cards</p>
             <div className="flex justify-center">
-              <ConnectWallet />
+              <PulseBeams />
+              
             </div>
           </div>
         )}

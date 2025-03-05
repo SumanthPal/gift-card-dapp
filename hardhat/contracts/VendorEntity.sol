@@ -18,7 +18,7 @@ contract VendorEntity is ERC1155, AccessControl {
         uint256 value;
         TokenType tokenType;
         uint256 expiryDate;
-        uint256 remainingUses; // Added this field
+        uint256 remainingUses;
         string[] redeemableItems;
         string encryptedData;
     }
@@ -49,19 +49,6 @@ contract VendorEntity is ERC1155, AccessControl {
         string memory encryptedData,
         uint256 amount
     ) public onlyRole(VENDOR_ROLE) {
-        require(expiryDate > block.timestamp, "Expiry date should be in the future");
-
-        if (tokenType == TokenType.COUPON) {
-            require(value <= 100, "Coupon discount should be <= 100%");
-            require(remainingUses > 0, "Coupon must have at least 1 use");
-        }
-
-        if (tokenType == TokenType.VOUCHER) {
-            require(redeemableItems.length > 0, "Voucher must have redeemable items");
-        }
-
-        require(_tokenMetadata[tokenId].expiryDate == 0, "Token ID already exists");
-
         _mint(to, tokenId, amount, "");
 
         _tokenMetadata[tokenId] = TokenMetadata({
@@ -135,10 +122,6 @@ contract VendorEntity is ERC1155, AccessControl {
         return string(abi.encodePacked(super.uri(tokenId), tokenId.toString()));
     }
 
-    function getUserGiftCards(address user) public view returns (uint256[] memory) {
-        return _userGiftCards[user];
-    }
-
     function sendTokenToWallet(address to, uint256 tokenId) public {
         require(_tokenMetadata[tokenId].expiryDate != 0, "Token does not exist");
         require(balanceOf(msg.sender, tokenId) > 0, "Sender does not own the token");
@@ -159,5 +142,67 @@ contract VendorEntity is ERC1155, AccessControl {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    // New function to retrieve tokens by vendor and token type
+    function getTokensByVendorAndType(address vendor, TokenType tokenType) 
+        public 
+        view 
+        returns (uint256[] memory) 
+    {
+        uint256[] memory result = new uint256[](_userGiftCards[vendor].length);
+        uint256 counter = 0;
+
+        for (uint256 i = 0; i < _userGiftCards[vendor].length; i++) {
+            uint256 tokenId = _userGiftCards[vendor][i];
+            if (_tokenMetadata[tokenId].tokenType == tokenType) {
+                result[counter] = tokenId;
+                counter++;
+            }
+        }
+
+        // Resize the array to remove unused slots
+        uint256[] memory finalResult = new uint256[](counter);
+        for (uint256 i = 0; i < counter; i++) {
+            finalResult[i] = result[i];
+        }
+
+        return finalResult;
+    }
+
+    // New function to get all tokens minted by a vendor
+    function getAllTokensByVendor(address vendor) 
+        public 
+        view 
+        returns (uint256[] memory) 
+    {
+        return _userGiftCards[vendor];
+    }
+
+    // New function to get all tokens owned by a vendor
+    function getOwnedTokensByVendor(address vendor) 
+        public 
+        view 
+        returns (uint256[] memory) 
+    {
+        uint256[] memory allTokens = _userGiftCards[vendor];
+        uint256[] memory ownedTokens = new uint256[](allTokens.length);
+        uint256 counter = 0;
+
+        for (uint256 i = 0; i < allTokens.length; i++) {
+            uint256 tokenId = allTokens[i];
+            if (balanceOf(vendor, tokenId) > 0) {
+                ownedTokens[counter] = tokenId;
+                counter++;
+            }
+        }
+
+        // Resize the array to remove unused slots
+        uint256[] memory finalResult = new uint256[](counter);
+        for (uint256 i = 0; i < counter; i++) {
+            finalResult[i] = ownedTokens[i];
+        }
+
+        return finalResult;
     }
 }
